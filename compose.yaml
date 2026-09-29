@@ -1,0 +1,19 @@
+services:
+
+  postgres:
+    image: postgres:17
+    container_name: wallet-postgres
+
+    environment:
+      POSTGRES_DB: wallet_db
+      POSTGRES_USER: wallet_user
+      POSTGRES_PASSWORD: wallet_password
+
+    ports:
+      - "5433:5432"
+
+    volumes:
+      - wallet_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  wallet_postgres_data:

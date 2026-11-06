@@ -11,6 +11,14 @@ public record CreateUserRequest(
 
         @NotBlank
         @Email
-        String email
+        String email,
+
+        @NotBlank
+        @Size(
+                min = 8,
+                max = 72,
+                message = "Пароль должен содержать от 8 до 72 символов"
+        )
+        String password
 ) {
 }

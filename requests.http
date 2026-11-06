@@ -1,136 +1,140 @@
-POST http://localhost:8080/api/users
+@baseUrl = http://localhost:8080
+@testEmail = wallet.demo.01@example.com
+@testPassword = WalletTest2026!
+
+### 1. Проверить работу приложения — 200
+GET {{baseUrl}}/api/ping
+
+### 2. Зарегистрировать пользователя — 201
+POST {{baseUrl}}/api/users
 Content-Type: application/json
 
 {
-  "name": "Ilya",
-  "email": "ilya@mail.com"
+  "name": "Demo User",
+  "email": "{{testEmail}}",
+  "password": "{{testPassword}}"
 }
-### Создать кошелёк
-POST http://localhost:8080/api/wallets
+
+> {%
+    client.test("Пользователь создан", function () {
+        client.assert(response.status === 201, "Ожидался статус 201");
+    });
+
+    if (response.status === 201) {
+        client.global.set("demoUserId", response.body.id);
+    }
+%}
+
+### 3. Войти — 200
+POST {{baseUrl}}/api/users/login
 Content-Type: application/json
 
 {
-  "userId": 1,
+  "email": "{{testEmail}}",
+  "password": "{{testPassword}}"
+}
+
+> {%
+    client.test("Вход выполнен", function () {
+        client.assert(response.status === 200, "Ожидался статус 200");
+    });
+
+    if (response.status === 200) {
+        client.global.set("demoToken", response.body.accessToken);
+    }
+%}
+
+### 4. Создать кошелёк — 201
+POST {{baseUrl}}/api/wallets
+Authorization: Bearer {{demoToken}}
+Content-Type: application/json
+
+{
+  "userId": {{demoUserId}},
   "currency": "RUB"
 }
-### Получить кошелёк пользователя
-GET http://localhost:8080/api/wallets/user/1
 
-### Пополнить кошелёк
-POST http://localhost:8080/api/wallets/1/deposit
+> {%
+    client.test("Кошелёк создан", function () {
+        client.assert(response.status === 201, "Ожидался статус 201");
+    });
+
+    if (response.status === 201) {
+        client.global.set("demoWalletId", response.body.id);
+    }
+%}
+
+### 5. Получить свой кошелёк — 200
+GET {{baseUrl}}/api/wallets/{{demoWalletId}}
+Authorization: Bearer {{demoToken}}
+
+### 6. Пополнить на 1000 — 200
+POST {{baseUrl}}/api/wallets/{{demoWalletId}}/deposit
+Authorization: Bearer {{demoToken}}
 Content-Type: application/json
 
 {
   "amount": 1000.00
 }
-### Пополнить ещё раз
-POST http://localhost:8080/api/wallets/1/deposit
-Content-Type: application/json
 
-{
-  "amount": 500.00
-}
-### Списать деньги
-POST http://localhost:8080/api/wallets/1/withdraw
+### 7. Снять 300 — 200
+POST {{baseUrl}}/api/wallets/{{demoWalletId}}/withdraw
+Authorization: Bearer {{demoToken}}
 Content-Type: application/json
 
 {
   "amount": 300.00
 }
-######
-POST http://localhost:8080/api/wallets/1/withdraw
+
+### 8. Посмотреть историю — 200
+GET {{baseUrl}}/api/wallets/{{demoWalletId}}/transactions
+Authorization: Bearer {{demoToken}}
+
+### 9. Недостаточно средств — 409
+POST {{baseUrl}}/api/wallets/{{demoWalletId}}/withdraw
+Authorization: Bearer {{demoToken}}
 Content-Type: application/json
 
 {
-  "amount": 5000.00
+  "amount": 999999.00
 }
 
-### История операций
-GET http://localhost:8080/api/wallets/1/transactions
-
-### Создать второго пользователя
-POST http://localhost:8080/api/users
+### 10. Отрицательная сумма — 400
+POST {{baseUrl}}/api/wallets/{{demoWalletId}}/deposit
+Authorization: Bearer {{demoToken}}
 Content-Type: application/json
 
 {
-  "name": "Alex",
-  "email": "alex@mail.com"
+  "amount": -100.00
 }
 
-### Создать Wallet второму пользователю
-POST http://localhost:8080/api/wallets
+### 11. Неправильный пароль — 401
+POST {{baseUrl}}/api/users/login
 Content-Type: application/json
 
 {
-  "userId": 2,
-  "currency": "RUB"
-}
-### Пополнить первый кошелёк
-POST http://localhost:8080/api/wallets/1/deposit
-Content-Type: application/json
-
-{
-  "amount": 1000.00
+  "email": "{{testEmail}}",
+  "password": "WrongPassword123!"
 }
 
-### Перевод между кошельками
-POST http://localhost:8080/api/transfers
+### 12. Без токена — 401
+GET {{baseUrl}}/api/wallets/{{demoWalletId}}
+
+### 13. Чужой кошелёк №1 — 403
+GET {{baseUrl}}/api/wallets/1
+Authorization: Bearer {{demoToken}}
+
+### 14. Перевод со своего кошелька на кошелёк №1 — 200
+POST {{baseUrl}}/api/transfers
+Authorization: Bearer {{demoToken}}
 Content-Type: application/json
 
 {
-  "fromWalletId": 1,
-  "toWalletId": 2,
-  "amount": 300.00
-}
-
-### Первый Wallet
-GET http://localhost:8080/api/wallets/1
-
-### Второй Wallet
-GET http://localhost:8080/api/wallets/2
-
-### История первого Wallet
-GET http://localhost:8080/api/wallets/1/transactions
-
-### Несуществующий Wallet
-GET http://localhost:8080/api/wallets/999999
-
-### Недостаточно средств
-POST http://localhost:8080/api/wallets/1/withdraw
-Content-Type: application/json
-
-{
-  "amount": 99999999.00
-}
-#######
-POST http://localhost:8080/api/wallets/1/deposit
-Content-Type: application/json
-
-{
-  "amount": -500
-}
-######
-POST http://localhost:8080/api/transfers
-Content-Type: application/json
-
-{
-  "fromWalletId": 1,
+  "fromWalletId": {{demoWalletId}},
   "toWalletId": 1,
   "amount": 100.00
 }
-#######
-POST http://localhost:8080/api/wallets
-Content-Type: application/json
 
-{
-  "userId": 3,
-  "currency": "BITCOIN"
-}
-######
-POST http://localhost:8080/api/users
-Content-Type: application/json
-
-{
-  "name": "Another Ilya",
-  "email": "ilya@mail.com"
-}
+### 15. Проверить итоговый баланс — 200, баланс 600
+GET {{baseUrl}}/api/wallets/{{demoWalletId}}
+Authorization: Bearer {{demoToken}}

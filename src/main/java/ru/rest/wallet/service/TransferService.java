@@ -23,13 +23,16 @@ public class TransferService {
 
     private final WalletRepository walletRepository;
     private final TransactionRepository transactionRepository;
+    private final CurrentUserService currentUserService;
 
     public TransferService(
             WalletRepository walletRepository,
-            TransactionRepository transactionRepository
+            TransactionRepository transactionRepository,
+            CurrentUserService currentUserService
     ) {
         this.walletRepository = walletRepository;
         this.transactionRepository = transactionRepository;
+        this.currentUserService = currentUserService;
     }
 
     @Transactional
@@ -79,6 +82,9 @@ public class TransferService {
             fromWallet = secondWallet;
             toWallet = firstWallet;
         }
+        currentUserService.requireOwner(
+                fromWallet.getUser().getId()
+        );
 
         if (fromWallet.getCurrency()
                 != toWallet.getCurrency()) {

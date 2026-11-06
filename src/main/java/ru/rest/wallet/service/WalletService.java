@@ -18,6 +18,8 @@ import ru.rest.wallet.exception.WalletNotFoundException;
 import ru.rest.wallet.repository.TransactionRepository;
 import ru.rest.wallet.repository.UserRepository;
 import ru.rest.wallet.repository.WalletRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -28,17 +30,27 @@ public class WalletService {
     private final WalletRepository walletRepository;
     private final UserRepository userRepository;
     private final TransactionRepository transactionRepository;
+    private final CurrentUserService currentUserService;
 
-    public WalletService(WalletRepository walletRepository, UserRepository userRepository, TransactionRepository transactionRepository) {
+
+
+    public WalletService(
+            WalletRepository walletRepository,
+            UserRepository userRepository,
+            TransactionRepository transactionRepository,
+            CurrentUserService currentUserService
+    ) {
         this.walletRepository = walletRepository;
         this.userRepository = userRepository;
         this.transactionRepository = transactionRepository;
+        this.currentUserService = currentUserService;
     }
 
     @Transactional
     public WalletResponse createWallet(
             CreateWalletRequest request
     ) {
+        currentUserService.requireOwner(request.userId());
 
         User user =
                 userRepository.findById(request.userId())
@@ -77,18 +89,20 @@ public class WalletService {
                                         walletId
                                 )
                         );
+        currentUserService.requireOwner(wallet.getUser().getId());
 
         return toResponse(wallet);
     }
 
     @Transactional(readOnly = true)
     public WalletResponse getWalletByUser(Long userId) {
+        currentUserService.requireOwner(userId);
 
-        Wallet wallet = walletRepository
-                .findByUserId(userId)
+        Wallet wallet = walletRepository.findByUserId(userId)
                 .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "Wallet not found"
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "У пользователя нет кошелька"
                         )
                 );
 
@@ -102,12 +116,13 @@ public class WalletService {
     ) {
 
         Wallet wallet =
-                walletRepository.findById(walletId)
+                walletRepository.findByIdForUpdate(walletId)
                         .orElseThrow(() ->
                                 new WalletNotFoundException(
                                         walletId
                                 )
                         );
+        currentUserService.requireOwner(wallet.getUser().getId());
 
         BigDecimal newBalance =
                 wallet.getBalance()
@@ -137,13 +152,13 @@ public class WalletService {
     ) {
 
         Wallet wallet =
-                walletRepository.findById(walletId)
+                walletRepository.findByIdForUpdate(walletId)
                         .orElseThrow(() ->
                                 new WalletNotFoundException(
                                         walletId
                                 )
                         );
-
+        currentUserService.requireOwner(wallet.getUser().getId());
         BigDecimal amount = request.amount();
 
         if (wallet.getBalance()
@@ -202,11 +217,12 @@ public class WalletService {
             Long walletId
     ) {
 
-        if (!walletRepository.existsById(walletId)) {
-            throw new IllegalArgumentException(
-                    "Wallet not found"
-            );
-        }
+        Wallet wallet = walletRepository.findById(walletId)
+                .orElseThrow(() ->
+                        new WalletNotFoundException(walletId)
+                );
+
+        currentUserService.requireOwner(wallet.getUser().getId());
 
         return transactionRepository
                 .findAllByWalletIdOrderByCreatedAtDesc(walletId)

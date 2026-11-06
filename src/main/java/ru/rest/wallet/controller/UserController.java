@@ -6,6 +6,8 @@ import org.springframework.web.bind.annotation.*;
 import ru.rest.wallet.dto.CreateUserRequest;
 import ru.rest.wallet.dto.UserResponse;
 import ru.rest.wallet.service.UserService;
+import ru.rest.wallet.dto.LoginRequest;
+import ru.rest.wallet.dto.LoginResponse;
 
 @RestController
 @RequestMapping("/api/users")
@@ -24,5 +26,11 @@ public class UserController {
     ) {
 
         return userService.createUser(request);
+    }
+    @PostMapping("/login")
+    public LoginResponse login(
+            @Valid @RequestBody LoginRequest request
+    ) {
+        return userService.login(request);
     }
 }

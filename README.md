@@ -1,178 +1,81 @@
-# Wallet Service
+# WalletService
 
-Backend REST API для электронного кошелька.
+Учебный REST API электронного кошелька на Java и Spring Boot.
 
-Проект реализован на Java и Spring Boot. Основная цель — практика разработки REST API, работы с базой данных, транзакциями, валидацией и архитектурой backend-приложения.
+## Возможности
 
-## Features
+- Регистрация и вход с JWT.
+- Создание кошелька, пополнение и снятие денег.
+- Переводы между кошельками одной валюты.
+- Просмотр баланса и истории операций.
+- Проверка владельца кошелька.
+- Блокировки при изменении баланса.
 
-- создание пользователей;
-- создание кошельков;
-- получение информации о кошельке;
-- пополнение баланса;
-- снятие средств;
-- перевод денег между кошельками;
-- история транзакций;
-- валидация входных данных;
-- централизованная обработка ошибок;
-- миграции базы данных через Flyway.
+## Технологии
 
-## Tech Stack
+Java 21, Spring Boot, Spring Security, PostgreSQL, Spring Data JPA, Flyway, Maven, JUnit 5, Mockito.
 
-- Java 21
-- Spring Boot
-- Spring MVC
-- Spring Data JPA
-- Hibernate
-- PostgreSQL
-- Flyway
-- Docker / Docker Compose
-- Maven
-- Jakarta Validation
-- Lombok
+## Запуск
 
-## Architecture
+1. Установить JDK 21 и Docker.
+2. Запустить базу из каталога проекта:
 
-```text
-Controller
-   ↓
-Service
-   ↓
-Repository
-   ↓
-PostgreSQL
-```
-
-Основные пакеты проекта:
-
-```text
-controller
-dto
-entity
-repository
-service
-exception
-```
-
-## API
-
-### Users
-
-```http
-POST /api/users
-```
-
-Создание нового пользователя.
-
-### Wallets
-
-```http
-POST /api/wallets
-GET /api/wallets/{walletId}
-GET /api/wallets/user/{userId}
-```
-
-Создание и получение кошельков.
-
-### Balance operations
-
-```http
-POST /api/wallets/{walletId}/deposit
-POST /api/wallets/{walletId}/withdraw
-```
-
-Пополнение и снятие средств.
-
-### Transfers
-
-```http
-POST /api/transfers
-```
-
-Перевод средств между кошельками.
-
-### Transactions
-
-```http
-GET /api/wallets/{walletId}/transactions
-```
-
-Получение истории операций кошелька.
-
-## Database
-
-В проекте используется PostgreSQL.
-
-Структура базы данных создаётся через Flyway migrations:
-
-```text
-V1__create_users_table.sql
-V2__create_wallets_table.sql
-V3__create_transactions_table.sql
-V4__add_transfer_support.sql
-```
-
-## Run locally
-
-Клонировать репозиторий:
-
-```bash
-git clone https://github.com/Ilya-Turenko/wallet-service.git
-cd wallet-service
-```
-
-Запустить PostgreSQL:
-
-```bash
+```powershell
 docker compose up -d
 ```
 
-Запустить приложение.
+3. Сгенерировать ключ JWT и задать переменную окружения в PowerShell:
 
-Windows:
-
-```bash
-mvnw.cmd spring-boot:run
+```powershell
+$keyBytes = New-Object byte[] 32
+$random = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+$random.GetBytes($keyBytes)
+$random.Dispose()
+$env:JWT_SECRET = [Convert]::ToBase64String($keyBytes)
 ```
 
-Linux / macOS:
+4. В том же терминале запустить приложение:
 
-```bash
-./mvnw spring-boot:run
+```powershell
+.\mvnw.cmd spring-boot:run
 ```
 
-После запуска API доступен по адресу:
+При запуске через IntelliJ IDEA переменную `JWT_SECRET` нужно задать в настройках конфигурации запуска. Секретный ключ не следует сохранять в репозитории.
 
-```text
-http://localhost:8080
+Приложение доступно по адресу `http://localhost:8080`. Миграции базы выполняются автоматически.
+
+## API
+
+| Метод | Адрес | Назначение |
+|---|---|---|
+| POST | `/api/users` | Регистрация |
+| POST | `/api/users/login` | Получение токена |
+| POST | `/api/wallets` | Создание кошелька |
+| GET | `/api/wallets/{id}` | Просмотр кошелька |
+| GET | `/api/wallets/user/{userId}` | Кошелёк пользователя |
+| POST | `/api/wallets/{id}/deposit` | Пополнение |
+| POST | `/api/wallets/{id}/withdraw` | Снятие |
+| GET | `/api/wallets/{id}/transactions` | История операций |
+| POST | `/api/transfers` | Перевод |
+
+Для работы с кошельками и переводами требуется заголовок:
+
+```http
+Authorization: Bearer <accessToken>
 ```
 
-## API Testing
+Токен выдаётся при входе и действует 15 минут. Пользователь может управлять только своим кошельком.
 
-Для ручного тестирования запросов используется файл:
+Примеры запросов находятся в `requests.http` и выполняются через IntelliJ HTTP Client.
 
-```text
-requests.http
+## Тесты
+
+Тесты сервисов запускаются без базы данных:
+
+```powershell
+.\mvnw.cmd "-Dtest=UserServiceTest,WalletServiceTest,TransferServiceTest" test
 ```
 
-Запросы можно выполнять напрямую из IntelliJ IDEA.
+## Ограничения
 
-## Project Status
-
-Основная бизнес-логика Wallet Service реализована.
-
-В дальнейшем проект планируется дополнить:
-
-- Spring Security;
-- JWT authentication;
-- unit tests;
-- integration tests;
-- Swagger / OpenAPI;
-- Dockerfile;
-- CI/CD.
-
-## Author
-
-Ilya Turenko
-
-GitHub: https://github.com/Ilya-Turenko
+Проект не подключён к платёжной системе: пополнение является учебной операцией. Пользовательский интерфейс, обновление токенов и интеграционные тесты пока не реализованы. Некоторые некорректные запросы могут возвращать `500`.
